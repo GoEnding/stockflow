@@ -33,11 +33,11 @@ C# (.NET 8) 콘솔 + MS SQL Server 로 만든 재고관리 프로그램입니다
 
 ```mermaid
 erDiagram
-    suppliers ||--o{ products : "공급"
-    products  ||--o{ inventory : "보유"
-    warehouses ||--o{ inventory : "보관"
-    products  ||--o{ stock_movements : "기록"
-    warehouses ||--o{ stock_movements : "기록"
+    suppliers  ||--o{ products : ""
+    products   ||--o{ inventory : ""
+    warehouses ||--o{ inventory : ""
+    products   ||--o{ stock_movements : ""
+    warehouses ||--o{ stock_movements : ""
 
     suppliers {
         int supplier_id PK
@@ -75,6 +75,11 @@ erDiagram
         datetime2 created_at
     }
 ```
+
+**관계 요약**
+- `suppliers` 1 : N `products` — 한 공급처가 여러 상품 공급
+- `products` 1 : N `inventory`, `warehouses` 1 : N `inventory` — 상품×창고별 현재고
+- `products` 1 : N `stock_movements`, `warehouses` 1 : N `stock_movements` — 상품×창고별 입출고 이력
 
 > `inventory` 는 `(product_id, warehouse_id)` 조합에 UNIQUE 제약이 있어 "한 상품 + 한 창고 = 한 행" 을 보장합니다.
 
