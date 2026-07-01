@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockFlow 재고관리</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", sans-serif; margin: 0; padding: 24px; background: #f5f6f8; color: #222; }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    .sub { color: #666; margin-bottom: 24px; font-size: 0.9rem; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tabs button { padding: 8px 16px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer; }
+    .tabs button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    th { background: #f0f2f5; font-weight: 600; }
+    .warn { color: #dc2626; font-weight: 600; }
+    .ok { color: #16a34a; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    form { background: #fff; padding: 16px; border-radius: 8px; max-width: 420px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    form label { display: block; margin: 8px 0 4px; font-size: 0.85rem; color: #555; }
+    form input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    form button { margin-top: 12px; padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    #msg { margin-top: 12px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>StockFlow</h1>
+  <p class="sub">C# Web API + MS SQL 재고관리 (v2)</p>
+
+  <div class="tabs">
+    <button class="active" data-tab="inventory">재고 현황</button>
+    <button data-tab="low">안전재고 미만</button>
+    <button data-tab="movements">입출고 이력</button>
+    <button data-tab="receive">입고</button>
+    <button data-tab="issue">출고</button>
+  </div>
+
+  <div id="inventory" class="panel active">
+    <table>
+      <thead><tr><th>창고</th><th>상품</th><th>재고</th><th>안전재고</th><th>상태</th></tr></thead>
+      <tbody id="inventory-body"></tbody>
+    </table>
+  </div>
+
+  <div id="low" class="panel">
+    <table>
+      <thead><tr><th>창고</th><th>상품</th><th>재고</th><th>안전재고</th><th>상태</th></tr></thead>
+      <tbody id="low-body"></tbody>
+    </table>
+  </div>
+
+  <div id="movements" class="panel">
+    <table>
+      <thead><tr><th>창고</th><th>상품</th><th>구분</th><th>수량</th><th>일시</th></tr></thead>
+      <tbody id="movements-body"></tbody>
+    </table>
+  </div>
+
+  <div id="receive" class="panel">
+    <form id="receive-form">
+      <label>상품 코드</label><input name="productCode" placeholder="PRD001" required />
+      <label>창고 코드</label><input name="warehouseCode" placeholder="WH001" required />
+      <label>수량</label><input name="qty" type="number" min="1" required />
+      <button type="submit">입고 처리</button>
+      <div id="receive-msg"></div>
+    </form>
+  </div>
+
+  <div id="issue" class="panel">
+    <form id="issue-form">
+      <label>상품 코드</label><input name="productCode" placeholder="PRD001" required />
+      <label>창고 코드</label><input name="warehouseCode" placeholder="WH001" required />
+      <label>수량</label><input name="qty" type="number" min="1" required />
+      <button type="submit">출고 처리</button>
+      <div id="issue-msg"></div>
+    </form>
+  </div>
+
+  <script>
+    const api = "/api";
+
+    document.querySelectorAll(".tabs button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+        if (btn.dataset.tab === "inventory") loadInventory();
+        if (btn.dataset.tab === "low") loadLowStock();
+        if (btn.dataset.tab === "movements") loadMovements();
+      });
+    });
+
+    function statusClass(s) { return s === "경고" ? "warn" : "ok"; }
+
+    async function loadInventory() {
+      const res = await fetch(`${api}/inventory`);
+      const data = await res.json();
+      document.getElementById("inventory-body").innerHTML = data.map(i => `
+        <tr>
+          <td>${i.warehouseName}</td><td>${i.productName}</td>
+          <td>${i.qty}</td><td>${i.safetyStock}</td>
+          <td class="${statusClass(i.status)}">${i.status}</td>
+        </tr>`).join("");
+    }
+
+    async function loadLowStock() {
+      const res = await fetch(`${api}/inventory/low-stock`);
+      const data = await res.json();
+      document.getElementById("low-body").innerHTML = data.length === 0
+        ? '<tr><td colspan="5">안전재고 미만 품목이 없습니다.</td></tr>'
+        : data.map(i => `
+        <tr>
+          <td>${i.warehouseName}</td><td>${i.productName}</td>
+          <td>${i.qty}</td><td>${i.safetyStock}</td>
+          <td class="warn">${i.status}</td>
+        </tr>`).join("");
+    }
+
+    async function loadMovements() {
+      const res = await fetch(`${api}/stock/movements`);
+      const data = await res.json();
+      document.getElementById("movements-body").innerHTML = data.map(m => `
+        <tr>
+          <td>${m.warehouseName}</td><td>${m.productName}</td>
+          <td>${m.movementType}</td><td>${m.qty}</td>
+          <td>${new Date(m.createdAt).toLocaleString("ko-KR")}</td>
+        </tr>`).join("");
+    }
+
+    async function submitStock(formId, endpoint, msgId) {
+      const form = document.getElementById(formId);
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const body = {
+          productCode: fd.get("productCode"),
+          warehouseCode: fd.get("warehouseCode"),
+          qty: Number(fd.get("qty"))
+        };
+        const res = await fetch(`${api}/stock/${endpoint}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        const el = document.getElementById(msgId);
+        el.textContent = data.message + (data.warning ? " " + data.warning : "");
+        el.className = res.ok ? "ok" : "warn";
+        if (res.ok) { loadInventory(); loadMovements(); }
+      });
+    }
+
+    submitStock("receive-form", "receive", "receive-msg");
+    submitStock("issue-form", "issue", "issue-msg");
+    loadInventory();
+  </script>
+</body>
+</html>

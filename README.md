@@ -1,6 +1,7 @@
-# StockFlow — 콘솔 기반 미니 ERP 재고관리
+# StockFlow — 미니 ERP 재고관리
 
-C# (.NET 8) 콘솔 + MS SQL Server 로 만든 재고관리 프로그램입니다.
+C# (.NET 8) + MS SQL Server 로 만든 재고관리 프로그램입니다.
+**v1** 콘솔 메뉴, **v2** ASP.NET Core Web API + 간단한 웹 UI.
 입고·출고·재고·안전재고 경고 등 **재고 도메인의 핵심 문제**에 집중했습니다.
 
 > ORM(EF Core)을 쓰지 않고 **Dapper + 생(raw) SQL** 로 작성해, T-SQL을 직접 다룹니다.
@@ -11,10 +12,12 @@ C# (.NET 8) 콘솔 + MS SQL Server 로 만든 재고관리 프로그램입니다
 
 | 구분 | 사용 기술 |
 |------|-----------|
-| 언어 | C# (.NET 8 콘솔 앱) |
+| 언어 | C# (.NET 8) |
 | DB | Microsoft SQL Server (T-SQL) |
 | DB 접근 | Dapper (Micro ORM) + Microsoft.Data.SqlClient |
-| 인터페이스 | 콘솔 텍스트 메뉴 |
+| v1 UI | 콘솔 텍스트 메뉴 (`StockFlow`) |
+| v2 API | ASP.NET Core Web API + Swagger (`StockFlow.Api`) |
+| v2 Web | 정적 HTML (`wwwroot/index.html`) |
 
 ---
 
@@ -104,15 +107,18 @@ erDiagram
 
 ```
 stockflow/
+├── StockFlow.sln
 ├── db/
-│   ├── 01_schema.sql      # 테이블 5개 생성 (DDL)
-│   └── 02_seed.sql        # 테스트 데이터 (재실행 가능)
-└── StockFlow/
-    ├── Program.cs         # 메뉴 + 기능 로직
-    └── Models/            # 조회 결과 매핑용 클래스
-        ├── Product.cs
-        ├── InventoryView.cs
-        └── MovementView.cs
+│   ├── 01_schema.sql
+│   └── 02_seed.sql
+├── StockFlow.Core/          # 공통 비즈니스 로직 (Dapper + SQL)
+│   ├── Models/
+│   ├── Dtos/
+│   └── Services/
+├── StockFlow/               # v1 콘솔 앱
+└── StockFlow.Api/           # v2 Web API + 웹 UI
+    ├── Controllers/
+    └── wwwroot/index.html
 ```
 
 ---
@@ -138,16 +144,35 @@ const string connectionString =
 ```
 > `Server` 값은 SSMS 로그인 시 "서버 이름" 과 동일하게 설정합니다.
 
-### 4. 실행
+### 4. 실행 (v1 콘솔)
 ```bash
 cd StockFlow
 dotnet run
 ```
 
+### 5. 실행 (v2 API + 웹)
+```bash
+cd StockFlow.Api
+dotnet run
+```
+- 브라우저: `https://localhost:7xxx/` (재고 현황 웹 UI)
+- Swagger: `https://localhost:7xxx/swagger` (API 문서/테스트)
+
+**주요 API**
+| Method | URL | 설명 |
+|--------|-----|------|
+| GET | `/api/products` | 상품 목록 |
+| GET | `/api/inventory` | 창고별 재고 |
+| GET | `/api/inventory/low-stock` | 안전재고 미만 |
+| GET | `/api/stock/movements` | 입출고 이력 |
+| POST | `/api/stock/receive` | 입고 |
+| POST | `/api/stock/issue` | 출고 |
+
 ---
 
-## 향후 개선 아이디어 (v2)
+## 향후 개선 (v3)
 
-- 공급처/창고 CRUD 화면 추가
-- 출고와 주문(orders) 연동 (`stock_movements` 에 reference 컬럼 추가)
+- 콘솔 앱도 `StockFlow.Core` 공유하도록 리팩터링
+- 공급처/창고 CRUD API
+- 출고와 주문(orders) 연동 (`stock_movements` reference 컬럼)
 - 기간별 입출고 리포트
